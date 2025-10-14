@@ -15,8 +15,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // This URL needs to be correctly set to your live Python service URL
+// NOTE: Ensure this URL is correct for your deployed service
 const PYTHON_EMBED_URL = "https://visual-matcher-model.onrender.com/embed"; 
-// NOTE: We will use the generateEmbedding function instead of calling axios directly
 
 // Load products once when the server starts
 const products = loadProducts(path.join(__dirname, "../data/products_with_price.json"));
@@ -36,10 +36,9 @@ export const searchProducts = async (req, res, next) => {
             const buffer = req.file.buffer;
             mimeType = req.file.mimetype || mimeType; 
             
-            // REMOVED: fs.readFileSync and fs.unlinkSync, as we use the buffer directly
-            
+            // Generate Base64 string
             imageBase64 = `data:${mimeType};base64,${buffer.toString("base64")}`;
-            console.log(`Node LOG: Received uploaded file buffer: ${req.file.originalname}`);
+            console.log(`Node LOG: Received uploaded file buffer, MIME: ${mimeType}`);
 
         } else if (req.body.imageFile && req.body.imageFile.startsWith("http")) {
             // Logic for image URL input (fetching the image buffer)
@@ -61,7 +60,7 @@ export const searchProducts = async (req, res, next) => {
         }
 
         // --- 2. Get Embedding (Call the dedicated service) ---
-        console.log("Node LOG: Sending image to Python embedding service...");
+        console.log(`Node LOG: Sending Base64 (length: ${imageBase64.length}) to Python service...`);
         const embedding = await generateEmbedding(imageBase64); 
 
         if (!embedding || !Array.isArray(embedding)) {
@@ -88,7 +87,7 @@ export const searchProducts = async (req, res, next) => {
         // CRITICAL: Log the full stack trace to help debug the 502/500 errors
         console.error(`Controller Runtime ERROR: ${err.stack || err.message}`);
         
-        // Return a simple 500 error to the client
+        // Return a simple 500 error to the client, providing the detail needed for debugging
         res.status(500).json({
             error: "Failed to process image or complete search. Check backend logs for detailed error.",
             detail: err.message
@@ -96,7 +95,6 @@ export const searchProducts = async (req, res, next) => {
         next(err); 
     }
 };
-
 
 
 
