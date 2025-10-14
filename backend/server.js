@@ -11,7 +11,13 @@ const __dirname = dirname(__filename);
 
 const app = express();
 
-app.use(cors());
+const ALLOWED_ORIGIN = "https://visual-matcher-frontend-pknp.onrender.com";
+
+app.use(cors({
+    origin: ALLOWED_ORIGIN,
+    methods: "GET,POST",
+    credentials: true,
+}));
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true }));
 
