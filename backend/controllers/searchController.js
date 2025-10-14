@@ -3,97 +3,109 @@ import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 import axios from "axios";
 
-// CRITICAL FIX: Change named import to default import to handle CommonJS module
-import embeddingService from "../config/embeddingService.js"; 
+// Import embedding service (CommonJS default export)
+import embeddingService from "../config/embeddingService.js";
 const { generateEmbedding } = embeddingService;
 
-import { cosineSimilarity } from "../utils/cosineSimilarity.js"; // Assuming this utility path is correct
-import { loadProducts } from "../services/productService.js"; // Assuming this service path is correct
+import { cosineSimilarity } from "../utils/cosineSimilarity.js";
+import { loadProducts } from "../services/productService.js";
 
-// Set up __dirname and __filename equivalents for ES modules
+// --- Resolve current directory ---
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// This URL needs to be correctly set to your live Python service URL
-// NOTE: Ensure this URL is correct for your deployed service
-const PYTHON_EMBED_URL = "https://visual-matcher-model.onrender.com/embed"; 
+// --- Python model service endpoint ---
+const PYTHON_EMBED_URL = "https://visual-matcher-model.onrender.com/embed";
 
-// Load products once when the server starts
+// --- Load product dataset once on startup ---
 const products = loadProducts(path.join(__dirname, "../data/products_with_price.json"));
 
 /**
- * Handles the search request, converting the image input (File/URL) into a Base64 string,
- * getting the embedding, and performing the final vector search.
+ * Controller: Handles image upload, embedding generation, and similarity search
  */
 export const searchProducts = async (req, res, next) => {
-    try {
-        let imageBase64;
-        let mimeType = 'image/jpeg'; 
+  try {
+    let imageBase64;
+    let mimeType = "image/jpeg";
 
-        // --- 1. Handle Image Input (File, URL, or Base64 body) ---
-        if (req.file && req.file.buffer) {
-            // FIX: Read Buffer directly from memory (safest method on Render)
-            const buffer = req.file.buffer;
-            mimeType = req.file.mimetype || mimeType; 
-            
-            // Generate Base64 string
-            imageBase64 = `data:${mimeType};base64,${buffer.toString("base64")}`;
-            console.log(`Node LOG: Received uploaded file buffer, MIME: ${mimeType}`);
+    // --- 1. Handle Image Input (File, URL, or Base64 body) ---
+    if (req.file && req.file.buffer) {
+      const buffer = req.file.buffer;
+      mimeType = req.file.mimetype || mimeType;
 
-        } else if (req.body.imageFile && req.body.imageFile.startsWith("http")) {
-            // Logic for image URL input (fetching the image buffer)
-            const response = await axios.get(req.body.imageFile, { responseType: "arraybuffer" });
-            const contentType = response.headers['content-type'] || mimeType;
-            const buffer = Buffer.from(response.data, "binary");
-            imageBase64 = `data:${contentType};base64,${buffer.toString("base64")}`;
-            console.log("Node LOG: Fetched image from URL.");
-            
-        } else if (req.body.imageBase64) {
-             // Direct Base64 input
-            imageBase64 = req.body.imageBase64;
-             console.log("Node LOG: Received image via direct Base64 body.");
-        }
-        
-        if (!imageBase64) {
-            res.status(400);
-            throw new Error("No valid image input provided.");
-        }
+      // Convert to Base64 string for local reference/logging (not for sending)
+      imageBase64 = `data:${mimeType};base64,${buffer.toString("base64")}`;
+      console.log(`Node LOG: Received uploaded file buffer (MIME: ${mimeType}, size: ${buffer.length} bytes)`);
 
-        // --- 2. Get Embedding (Call the dedicated service) ---
-        console.log(`Node LOG: Sending Base64 (length: ${imageBase64.length}) to Python service...`);
-        const embedding = await generateEmbedding(imageBase64); 
+      // --- 2. Convert Base64 → Buffer before sending to Python ---
+      const imageBuffer = Buffer.from(imageBase64.split(",")[1], "base64");
+      console.log("Node LOG: Converted Base64 to binary buffer for embedding service.");
 
-        if (!embedding || !Array.isArray(embedding)) {
-            res.status(500);
-            throw new Error("Invalid or empty embedding received from Python service.");
-        }
-        console.log(`Node LOG: Received embedding of length ${embedding.length}`);
+      // --- 3. Request embedding from Python service ---
+      console.log(`Node LOG: Sending image buffer (${imageBuffer.length} bytes) to Python service...`);
+      const embedding = await generateEmbedding(imageBuffer);
 
-        // --- 3. Perform Vector Search ---
-        const results = products
-            .map((p) => ({
-                id: p.id,
-                name: p.name,
-                category: p.category,
-                image_url: p.image_url,
-                similarityScore: cosineSimilarity(embedding, p.embedding),
-            }))
-            .sort((a, b) => b.similarityScore - a.similarityScore)
-            .slice(0, 100); 
+      if (!embedding || !Array.isArray(embedding)) {
+        res.status(500);
+        throw new Error("Invalid or empty embedding received from Python service.");
+      }
+      console.log(`Node LOG: Successfully received embedding vector (length: ${embedding.length})`);
 
-        res.status(200).json({ results });
+      // --- 4. Perform Vector Search ---
+      const results = products
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          category: p.category,
+          image_url: p.image_url,
+          similarityScore: cosineSimilarity(embedding, p.embedding),
+        }))
+        .sort((a, b) => b.similarityScore - a.similarityScore)
+        .slice(0, 100);
 
-    } catch (err) {
-        // CRITICAL: Log the full stack trace to help debug the 502/500 errors
-        console.error(`Controller Runtime ERROR: ${err.stack || err.message}`);
-        
-        // Return a simple 500 error to the client, providing the detail needed for debugging
-        res.status(500).json({
-            error: "Failed to process image or complete search. Check backend logs for detailed error.",
-            detail: err.message
-        });
-        next(err); 
+      console.log(`Node LOG: Returning ${results.length} search results.`);
+      return res.status(200).json({ results });
+
+    } else if (req.body.imageFile && req.body.imageFile.startsWith("http")) {
+      // --- Handle image URL input ---
+      const response = await axios.get(req.body.imageFile, { responseType: "arraybuffer" });
+      const contentType = response.headers["content-type"] || mimeType;
+      const buffer = Buffer.from(response.data, "binary");
+      console.log(`Node LOG: Downloaded image from URL (${buffer.length} bytes).`);
+
+      const embedding = await generateEmbedding(buffer);
+      if (!embedding || !Array.isArray(embedding)) {
+        res.status(500);
+        throw new Error("Invalid or empty embedding received from Python service (URL input).");
+      }
+
+      const results = products
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          category: p.category,
+          image_url: p.image_url,
+          similarityScore: cosineSimilarity(embedding, p.embedding),
+        }))
+        .sort((a, b) => b.similarityScore - a.similarityScore)
+        .slice(0, 100);
+
+      return res.status(200).json({ results });
+
+    } else {
+      res.status(400);
+      throw new Error("No valid image file or URL provided.");
     }
+
+  } catch (err) {
+    console.error("Controller Runtime ERROR:", err.stack || err.message);
+
+    res.status(500).json({
+      error: "Failed to process image or complete search.",
+      detail: err.message,
+    });
+    next(err);
+  }
 };
 
 
