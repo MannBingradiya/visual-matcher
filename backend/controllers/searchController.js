@@ -3,8 +3,10 @@ import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 import axios from "axios";
 
-// Import modules with the correct ES module syntax
-import { generateEmbedding } from "../config/embeddingService.js";
+// CRITICAL FIX: Change named import to default import to handle CommonJS module
+import embeddingService from "../config/embeddingService.js"; 
+const { generateEmbedding } = embeddingService;
+
 import { cosineSimilarity } from "../utils/cosineSimilarity.js"; // Assuming this utility path is correct
 import { loadProducts } from "../services/productService.js"; // Assuming this service path is correct
 
@@ -84,8 +86,6 @@ export const searchProducts = async (req, res, next) => {
         next(err); 
     }
 };
-
-
 
 
 
