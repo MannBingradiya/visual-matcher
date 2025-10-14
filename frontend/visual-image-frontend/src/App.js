@@ -5,7 +5,7 @@ import LoadingState from "./components/loadingImg";
 import SearchResults from "./components/SearchRes";
 import "./App.css";
 
-const API_URL = "http://localhost:5000/api/search";
+const API_URL = "https://visual-matcher-backend-wiqj.onrender.com/api/search";
 
 function App() {
   const [searchResults, setSearchResults] = useState([]);
