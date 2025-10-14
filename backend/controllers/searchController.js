@@ -29,21 +29,28 @@ const products = loadProducts(path.join(__dirname, "../data/products_with_price.
 export const searchProducts = async (req, res, next) => {
     try {
         let imageBase64;
+        let mimeType = 'image/jpeg'; // Default MIME type for safety
 
-        // --- 1. Handle Image Input (File or URL) ---
-        if (req.file) {
-            // Logic for Multer-uploaded file (needs correct handling of file paths)
-            const buffer = fs.readFileSync(req.file.path);
-            imageBase64 = `data:image/${req.file.mimetype.split('/')[1]};base64,${buffer.toString("base64")}`;
-            fs.unlinkSync(req.file.path); // Clean up the temporary file
-            console.log(`Node LOG: Received uploaded file: ${req.file.originalname}`);
+        // --- 1. Handle Image Input (File, URL, or Base64 body) ---
+        if (req.file && req.file.buffer) {
+            // FIX: Read Buffer directly from memory (assuming Multer memoryStorage)
+            const buffer = req.file.buffer;
+            mimeType = req.file.mimetype || mimeType; // Use actual mimetype if available
+            imageBase64 = `data:${mimeType};base64,${buffer.toString("base64")}`;
+            console.log(`Node LOG: Received uploaded file buffer: ${req.file.originalname}`);
+            
+            // NOTE: If you were using disk storage, the buffer read logic must be uncommented:
+            // const buffer = fs.readFileSync(req.file.path);
+            // fs.unlinkSync(req.file.path); // Clean up the temporary file
+
         } else if (req.body.imageFile && req.body.imageFile.startsWith("http")) {
             // Logic for image URL input (fetching the image buffer)
             const response = await axios.get(req.body.imageFile, { responseType: "arraybuffer" });
-            const contentType = response.headers['content-type'] || 'image/jpeg';
+            const contentType = response.headers['content-type'] || mimeType;
             const buffer = Buffer.from(response.data, "binary");
             imageBase64 = `data:${contentType};base64,${buffer.toString("base64")}`;
             console.log("Node LOG: Fetched image from URL.");
+            
         } else if (req.body.imageBase64) {
              // Direct Base64 input (if frontend already converted it)
             imageBase64 = req.body.imageBase64;
@@ -81,11 +88,17 @@ export const searchProducts = async (req, res, next) => {
         res.status(200).json({ results });
 
     } catch (err) {
-        console.error(`Controller Runtime Error: ${err.message}`);
-        // Pass the error to Express error handler middleware
-        next(err); 
+        // Log the full error to the backend console for better debugging on Render
+        console.error(`Controller Runtime Error: ${err.stack || err.message}`);
+        
+        // Pass a cleaner error message back to the frontend
+        res.status(500).json({
+            error: "Failed to process image or connect to ML service. Check backend logs.",
+            detail: err.message
+        });
     }
 };
+
 
 
 
