@@ -3,46 +3,45 @@ import axios from "axios";
 const PYTHON_SERVICE_URL = "https://visual-matcher-model.onrender.com/embed";
 
 /**
- * Converts an image buffer to Base64 and sends it to the Python service.
+ * Generates embedding by sending base64 image to Python service
  */
-export async function generateEmbedding(imageBuffer, mimeType = "image/jpeg") {
-  try {
-    console.log("Node LOG: 1. Converting image buffer to base64...");
-    const imageBase64 = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
+export async function generateEmbedding(imageBuffer) {
+    console.log("Node LOG: Sending base64 image to Python service...");
 
-    console.log("Node LOG: 2. Sending base64 image to Flask service...");
-    const response = await axios.post(
-      PYTHON_SERVICE_URL,
-      { imageBase64 },
-      { headers: { "Content-Type": "application/json" } }
-    );
+    // Convert binary buffer to Base64
+    const imageBase64 = `data:image/jpeg;base64,${imageBuffer.toString("base64")}`;
 
-    if (response.data && Array.isArray(response.data.embedding)) {
-      console.log(`Node LOG: 3. Received embedding vector (length: ${response.data.embedding.length})`);
-      return response.data.embedding;
-    } else {
-      throw new Error("Python service returned invalid embedding format.");
+    try {
+        const response = await axios.post(
+            PYTHON_SERVICE_URL,
+            { imageBase64 },
+            { headers: { "Content-Type": "application/json" }, timeout: 60000 }
+        );
+
+        if (response.data && Array.isArray(response.data.embedding)) {
+            console.log(`Node LOG: Received embedding of length ${response.data.embedding.length}`);
+            return response.data.embedding;
+        } else {
+            throw new Error("Invalid embedding response format from Python service.");
+        }
+    } catch (error) {
+        console.error("Node ERROR: Failed to get embedding:", error.message);
+        if (error.response) {
+            console.error("Python response:", error.response.data);
+        }
+        throw new Error("Embedding service failed to process image.");
     }
-  } catch (error) {
-    console.error("Node ERROR: Failed to get embedding from Python service:");
-    if (error.response) {
-      console.error("Status:", error.response.status);
-      console.error("Response:", error.response.data);
-    } else {
-      console.error("Message:", error.message);
-    }
-    throw new Error("Embedding service failed to process image.");
-  }
 }
 
-export const loadFeatureExtractor = async () => {
-  console.log("Node LOG: Backend ready to use external embedding service.");
-  return true;
-};
+export function loadFeatureExtractor() {
+    console.log("Node LOG: Embedding service ready.");
+    return Promise.resolve(true);
+}
 
-export const getIsModelLoaded = () => true;
+export function getIsModelLoaded() {
+    return true;
+}
 
-export default { generateEmbedding, loadFeatureExtractor, getIsModelLoaded };
 
 
 
