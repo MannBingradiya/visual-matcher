@@ -85,28 +85,6 @@ export const searchProducts = async (req, res, next) => {
     }
 };
 
-// NOTE: Since you are using ES module 'import' syntax, you must also ensure your 
-// backend/package.json file has "type": "module" added to it.
-```
-
-### Final Deployment Steps:
-
-1.  **Update File:** Replace the content of your `backend/controllers/searchController.js` file with the code above.
-2.  **Fix `package.json`:** If you haven't already, add `"type": "module"` to your **`backend/package.json`** file.
-    ```json
-    {
-      "name": "backend",
-      "version": "1.0.0",
-      "description": "",
-      "main": "server.js",
-      "type": "module",  <-- ADD THIS LINE
-      "scripts": {
-        ...
-      },
-      ...
-    }
-    
-
 
 
 
