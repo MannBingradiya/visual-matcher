@@ -24,24 +24,22 @@ const products = loadProducts(path.join(__dirname, "../data/products_with_price.
 /**
  * Handles the search request, converting the image input (File/URL) into a Base64 string,
  * getting the embedding, and performing the final vector search.
- * * NOTE: The function is exported using 'export const' to match the router's 'import { searchProducts }'.
  */
 export const searchProducts = async (req, res, next) => {
     try {
         let imageBase64;
-        let mimeType = 'image/jpeg'; // Default MIME type for safety
+        let mimeType = 'image/jpeg'; 
 
         // --- 1. Handle Image Input (File, URL, or Base64 body) ---
         if (req.file && req.file.buffer) {
-            // FIX: Read Buffer directly from memory (assuming Multer memoryStorage)
+            // FIX: Read Buffer directly from memory (safest method on Render)
             const buffer = req.file.buffer;
-            mimeType = req.file.mimetype || mimeType; // Use actual mimetype if available
+            mimeType = req.file.mimetype || mimeType; 
+            
+            // REMOVED: fs.readFileSync and fs.unlinkSync, as we use the buffer directly
+            
             imageBase64 = `data:${mimeType};base64,${buffer.toString("base64")}`;
             console.log(`Node LOG: Received uploaded file buffer: ${req.file.originalname}`);
-            
-            // NOTE: If you were using disk storage, the buffer read logic must be uncommented:
-            // const buffer = fs.readFileSync(req.file.path);
-            // fs.unlinkSync(req.file.path); // Clean up the temporary file
 
         } else if (req.body.imageFile && req.body.imageFile.startsWith("http")) {
             // Logic for image URL input (fetching the image buffer)
@@ -52,19 +50,18 @@ export const searchProducts = async (req, res, next) => {
             console.log("Node LOG: Fetched image from URL.");
             
         } else if (req.body.imageBase64) {
-             // Direct Base64 input (if frontend already converted it)
+             // Direct Base64 input
             imageBase64 = req.body.imageBase64;
              console.log("Node LOG: Received image via direct Base64 body.");
         }
         
         if (!imageBase64) {
             res.status(400);
-            throw new Error("No valid image file, URL, or Base64 data provided.");
+            throw new Error("No valid image input provided.");
         }
 
         // --- 2. Get Embedding (Call the dedicated service) ---
         console.log("Node LOG: Sending image to Python embedding service...");
-        // Use the dedicated service function which handles the Axios/JSON forwarding
         const embedding = await generateEmbedding(imageBase64); 
 
         if (!embedding || !Array.isArray(embedding)) {
@@ -83,22 +80,22 @@ export const searchProducts = async (req, res, next) => {
                 similarityScore: cosineSimilarity(embedding, p.embedding),
             }))
             .sort((a, b) => b.similarityScore - a.similarityScore)
-            .slice(0, 100); // Return top 100 results
+            .slice(0, 100); 
 
         res.status(200).json({ results });
 
     } catch (err) {
-        // Log the full error to the backend console for better debugging on Render
-        console.error(`Controller Runtime Error: ${err.stack || err.message}`);
+        // CRITICAL: Log the full stack trace to help debug the 502/500 errors
+        console.error(`Controller Runtime ERROR: ${err.stack || err.message}`);
         
-        // Pass a cleaner error message back to the frontend
+        // Return a simple 500 error to the client
         res.status(500).json({
-            error: "Failed to process image or connect to ML service. Check backend logs.",
+            error: "Failed to process image or complete search. Check backend logs for detailed error.",
             detail: err.message
         });
+        next(err); 
     }
 };
-
 
 
 
