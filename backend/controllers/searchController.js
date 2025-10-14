@@ -9,7 +9,7 @@ import { loadProducts } from "../services/productService.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const PYTHON_EMBED_URL = "http://localhost:5001/embed";
+const PYTHON_EMBED_URL = "https://visual-matcher-model.onrender.com/embed";
 const products = loadProducts(path.join(__dirname, "../data/products_with_price.json"));
 
 export const searchProducts = async (req, res, next) => {
