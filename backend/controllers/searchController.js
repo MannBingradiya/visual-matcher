@@ -1,68 +1,112 @@
+import fs from "fs";
+import path, { dirname } from "path";
+import { fileURLToPath } from "url";
 import axios from "axios";
 
+// Import modules with the correct ES module syntax
+import { generateEmbedding } from "../config/embeddingService.js";
+import { cosineSimilarity } from "../utils/cosineSimilarity.js"; // Assuming this utility path is correct
+import { loadProducts } from "../services/productService.js"; // Assuming this service path is correct
+
+// Set up __dirname and __filename equivalents for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 // This URL needs to be correctly set to your live Python service URL
-const PYTHON_SERVICE_URL = 'https://visual-matcher-model.onrender.com/embed'; 
+const PYTHON_EMBED_URL = "https://visual-matcher-model.onrender.com/embed"; 
+// NOTE: We will use the generateEmbedding function instead of calling axios directly
+
+// Load products once when the server starts
+const products = loadProducts(path.join(__dirname, "../data/products_with_price.json"));
 
 /**
- * Placeholder for module initialization logic.
- * The server currently just assumes the external Python service is running.
+ * Handles the search request, converting the image input (File/URL) into a Base64 string,
+ * getting the embedding, and performing the final vector search.
+ * * NOTE: The function is exported using 'export const' to match the router's 'import { searchProducts }'.
  */
-export const loadFeatureExtractor = () => { 
-    console.log("Node LOG: Backend ready to use external embedding service.");
-    return Promise.resolve(true); 
-};
-
-/**
- * Sends the Base64 image string to the external Python service and retrieves the embedding vector.
- * @param {string} imageBase64 The base64 encoded image string (e.g., "data:image/jpeg;base64,...").
- * @returns {Promise<number[]>} The 1280-dimensional embedding vector.
- */
-export const generateEmbedding = async (imageBase64) => {
-    console.log("Node LOG: 1. Requesting embedding from Python service...");
-    
-    // Prepare JSON payload: The Python service expects a JSON body with the key imageBase64
-    const payload = {
-        imageBase64: imageBase64 
-    };
-    
+export const searchProducts = async (req, res, next) => {
     try {
-        // CRITICAL FIX: Send Base64 data as a JSON payload, NOT FormData.
-        const response = await axios.post(PYTHON_SERVICE_URL, payload, {
-            headers: { 'Content-Type': 'application/json' },
-            // Set a generous timeout (e.g., 90 seconds) for the ML model to wake up and process the image
-            timeout: 90000 
-        });
+        let imageBase64;
+
+        // --- 1. Handle Image Input (File or URL) ---
+        if (req.file) {
+            // Logic for Multer-uploaded file (needs correct handling of file paths)
+            const buffer = fs.readFileSync(req.file.path);
+            imageBase64 = `data:image/${req.file.mimetype.split('/')[1]};base64,${buffer.toString("base64")}`;
+            fs.unlinkSync(req.file.path); // Clean up the temporary file
+            console.log(`Node LOG: Received uploaded file: ${req.file.originalname}`);
+        } else if (req.body.imageFile && req.body.imageFile.startsWith("http")) {
+            // Logic for image URL input (fetching the image buffer)
+            const response = await axios.get(req.body.imageFile, { responseType: "arraybuffer" });
+            const contentType = response.headers['content-type'] || 'image/jpeg';
+            const buffer = Buffer.from(response.data, "binary");
+            imageBase64 = `data:${contentType};base64,${buffer.toString("base64")}`;
+            console.log("Node LOG: Fetched image from URL.");
+        } else if (req.body.imageBase64) {
+             // Direct Base64 input (if frontend already converted it)
+            imageBase64 = req.body.imageBase64;
+             console.log("Node LOG: Received image via direct Base64 body.");
+        }
         
-        const { embedding } = response.data;
-        
-        if (embedding && Array.isArray(embedding)) {
-            const vectorLength = embedding.length;
-            console.log(`Node LOG: 2. Successfully received vector of length ${vectorLength}.`);
-            return embedding;
-        } else {
-            throw new Error("Python service returned invalid embedding format (not an array or null).");
+        if (!imageBase64) {
+            res.status(400);
+            throw new Error("No valid image file, URL, or Base64 data provided.");
         }
 
-    } catch (error) {
-        // Enhanced logging to capture the error passed from the Python service
-        const pythonErrorMessage = error.response ? 
-            `Python Error: ${error.response.data.error}` : 
-            `Connection Error: ${error.message}. Is Python service running?`;
-            
-        console.error("Node ERROR: Failed to get embedding:", pythonErrorMessage);
-        // Throw a specific error that the controller can catch and handle cleanly
-        throw new Error(`Embedding service failed: ${pythonErrorMessage}`);
+        // --- 2. Get Embedding (Call the dedicated service) ---
+        console.log("Node LOG: Sending image to Python embedding service...");
+        // Use the dedicated service function which handles the Axios/JSON forwarding
+        const embedding = await generateEmbedding(imageBase64); 
+
+        if (!embedding || !Array.isArray(embedding)) {
+            res.status(500);
+            throw new Error("Invalid or empty embedding received from Python service.");
+        }
+        console.log(`Node LOG: Received embedding of length ${embedding.length}`);
+
+        // --- 3. Perform Vector Search ---
+        const results = products
+            .map((p) => ({
+                id: p.id,
+                name: p.name,
+                category: p.category,
+                image_url: p.image_url,
+                similarityScore: cosineSimilarity(embedding, p.embedding),
+            }))
+            .sort((a, b) => b.similarityScore - a.similarityScore)
+            .slice(0, 100); // Return top 100 results
+
+        res.status(200).json({ results });
+
+    } catch (err) {
+        console.error(`Controller Runtime Error: ${err.message}`);
+        // Pass the error to Express error handler middleware
+        next(err); 
     }
 };
 
-// No longer needed for ES module syntax:
-/*
-module.exports = {
-    loadFeatureExtractor: loadFeatureExtractor, 
-    generateEmbedding: generateEmbedding,
-    getIsModelLoaded: () => true, 
-};
-*/
+// NOTE: Since you are using ES module 'import' syntax, you must also ensure your 
+// backend/package.json file has "type": "module" added to it.
+```
+
+### Final Deployment Steps:
+
+1.  **Update File:** Replace the content of your `backend/controllers/searchController.js` file with the code above.
+2.  **Fix `package.json`:** If you haven't already, add `"type": "module"` to your **`backend/package.json`** file.
+    ```json
+    {
+      "name": "backend",
+      "version": "1.0.0",
+      "description": "",
+      "main": "server.js",
+      "type": "module",  <-- ADD THIS LINE
+      "scripts": {
+        ...
+      },
+      ...
+    }
+    
+
 
 
 
