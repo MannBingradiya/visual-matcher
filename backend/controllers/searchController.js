@@ -15,7 +15,9 @@ export const searchProducts = async (req, res, next) => {
     let imageBuffer;
 
     // --- Handle uploaded file ---
-    if (req.file && req.file.buffer) {
+    if (req.file) {
+      const buffer = req.file.buffer;
+      imageBase64 = `data:image/jpeg;base64,${buffer.toString("base64")}`;
       imageBuffer = req.file.buffer;
       console.log(`Node LOG: File received (${req.file.mimetype}, ${req.file.size} bytes)`);
     }
