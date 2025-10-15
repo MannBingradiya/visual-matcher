@@ -35,7 +35,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use("/api/search", searchRoutes);
+app.use("/api", searchRoutes);
 
 // Error-handling middlewares
 app.use(notFound);
