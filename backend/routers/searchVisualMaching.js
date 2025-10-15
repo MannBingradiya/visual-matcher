@@ -3,9 +3,9 @@ import { upload } from "../middlewares/uploadMiddleware.js";
 import { searchProducts } from "../controllers/searchController.js";
 
 const router = express.Router();
+const upload = multer();
 
 router.post("/", upload.single("imageFile"), searchProducts);
 
-// router.post("/search", upload.single("image"), searchImage);
 
 export default router;
