@@ -9,7 +9,28 @@ import { cosineSimilarity } from "./utils/cosineSimilarity.js";
 import { loadProducts } from "./services/productService.js";
 
 const app = express();
-app.use(cors());
+
+// ✅ Explicit CORS configuration
+const allowedOrigins = [
+  "https://visual-matcher-frontend-pknp.onrender.com",
+  "http://localhost:3000" // for local testing
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+  })
+);
+
+app.options("*", cors()); // ✅ Allow preflight for all routes
+
 app.use(express.json({ limit: "10mb" }));
 
 // Resolve paths
@@ -93,7 +114,8 @@ app.post("/api/search", upload.single("imageFile"), async (req, res) => {
 
 // Default route
 app.get("/", (req, res) => {
-  res.send("Visual Matcher Backend is running ✅");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.send("✅ Visual Matcher Backend is running");
 });
 
 // Start server
