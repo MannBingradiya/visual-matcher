@@ -3,7 +3,7 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
-import searchRoutes from "./routers/searchVisualMatching.js";
+import searchRoutes from "./routers/searchVisualMaching.js";
 import { notFound, errorHandler } from "./middlewares/errorMiddleware.js";
 
 const __filename = fileURLToPath(import.meta.url);
