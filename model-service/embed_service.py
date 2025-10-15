@@ -28,12 +28,17 @@ def get_embedding_from_base64(image_base64):
 def embed():
     try:
         data = request.get_json()
+        print("🚀 [Python] Request received at /embed")
         if not data or "imageBase64" not in data:
+            print("❌ Missing 'imageBase64' in request")
             return jsonify({"error": "Missing 'imageBase64' in request."}), 400
 
+        print("🧩 Generating embedding...")
         embedding = get_embedding_from_base64(data["imageBase64"])
+        print("✅ Embedding generated successfully! Length:", len(embedding))
         return jsonify({"embedding": embedding})
     except Exception as e:
+        print("🔥 [Python ERROR]:", str(e))
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
