@@ -1,4 +1,5 @@
 import express from "express";
+import multer from "multer";
 import { upload } from "../middlewares/uploadMiddleware.js";
 import { searchProducts } from "../controllers/searchController.js";
 
