@@ -66,9 +66,11 @@ import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 import axios from "axios";
 
-// CRITICAL FIX: Change named import to default import to handle CommonJS module
-import embeddingService from "../config/embeddingService.js"; 
-const { generateEmbedding } = embeddingService;
+// CRITICAL FIX: Use the Node.js recommended hybrid import for CommonJS files
+// This assumes embeddingService.js uses 'module.exports = { generateEmbedding: ... }'
+import * as embeddingService from "../config/embeddingService.js"; 
+const { generateEmbedding } = embeddingService; // Safely destructure the named export
+
 
 // CRITICAL FIX: Hybrid Imports for Local Utilities (Async Load)
 // This loads the utilities safely and prevents crashing on startup.
