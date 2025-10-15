@@ -18,13 +18,13 @@ app.use(cors({
     methods: "GET,POST",
     credentials: true,
 }));
-app.use(express.json({ limit: "50mb" }));
+app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 
 app.use("/api/search", searchRoutes);
 
-app.use("/api", searchRoutes);
+// app.use("/api", searchRoutes);
 
 app.get("/", (req, res) => res.send("Backend running ✅"));
 
