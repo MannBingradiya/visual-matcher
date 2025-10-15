@@ -4,7 +4,7 @@ import { upload } from "../middlewares/uploadMiddleware.js";
 import { searchProducts } from "../controllers/searchController.js";
 
 const router = express.Router();
-const upload = multer();
+const upload = multer({ storage: multer.memoryStorage() }); 
 
 router.post("/search", upload.single("imageFile"), searchProducts);
 
