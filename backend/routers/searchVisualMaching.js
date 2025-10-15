@@ -6,4 +6,6 @@ const router = express.Router();
 
 router.post("/", upload.single("imageFile"), searchProducts);
 
+router.post("/search", upload.single("image"), searchImage);
+
 export default router;
