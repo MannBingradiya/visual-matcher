@@ -35,6 +35,7 @@ function App() {
       console.log("App: sending request to", API_URL);
 
       const response = await axios.post(API_URL, formData, {
+         console.log("sending response");
         headers: { "Content-Type": "multipart/form-data" },
       });
 
