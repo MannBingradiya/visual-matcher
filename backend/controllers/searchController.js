@@ -2,7 +2,8 @@ import fs from "fs";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 import axios from "axios";
-import { generateEmbedding } from "../config/embeddingService.js";
+import embeddingService from "../config/embeddingService.js";
+const { generateEmbedding } = embeddingService;
 import { cosineSimilarity } from "../utils/cosineSimilarity.js";
 import { loadProducts } from "../services/productService.js";
 
