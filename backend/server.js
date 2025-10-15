@@ -24,6 +24,10 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/search", searchRoutes);
 
+app.use("/api", searchRoutes);
+
+app.get("/", (req, res) => res.send("Backend running ✅"));
+
 // Error-handling middlewares
 app.use(notFound);
 app.use(errorHandler);
