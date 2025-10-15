@@ -5,6 +5,6 @@ import { searchProducts } from "../controllers/searchController.js";
 
 const router = express.Router();
 
-router.post("/search", upload.single("imageFile"), searchProducts);
+router.post("/", upload.single("imageFile"), searchProducts);
 
 export default router;
