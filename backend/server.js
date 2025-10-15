@@ -10,10 +10,9 @@ import { loadProducts } from "./services/productService.js";
 
 const app = express();
 
-// ✅ Explicit CORS configuration
 const allowedOrigins = [
   "https://visual-matcher-frontend-pknp.onrender.com",
-  "http://localhost:3000" // for local testing
+  "http://localhost:3000"
 ];
 
 app.use(
@@ -29,25 +28,21 @@ app.use(
   })
 );
 
-app.options("*", cors()); // ✅ Allow preflight for all routes
+// ✅ Fixed wildcard route — Express v5 compatible
+app.options("/*", cors());
 
 app.use(express.json({ limit: "10mb" }));
 
-// Resolve paths
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Multer setup — store files in memory
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// Python model service URL
 const PYTHON_EMBED_URL = "https://visual-matcher-model.onrender.com/embed";
 
-// Load product embeddings
 const products = loadProducts(path.join(__dirname, "./data/products_with_price.json"));
 
-// 🧠 Generate embedding from Flask API
 async function generateEmbedding(imageBase64) {
   try {
     const response = await axios.post(PYTHON_EMBED_URL, { imageBase64 });
@@ -58,38 +53,31 @@ async function generateEmbedding(imageBase64) {
   }
 }
 
-// 🔍 Search endpoint
 app.post("/api/search", upload.single("imageFile"), async (req, res) => {
   try {
     let imageBase64;
-    let mimeType = req.file?.mimetype || "image/jpeg";
+    const mimeType = req.file?.mimetype || "image/jpeg";
 
-    if (req.file && req.file.buffer) {
-      // Convert uploaded file to Base64
+    if (req.file?.buffer) {
       const buffer = req.file.buffer;
       imageBase64 = `data:${mimeType};base64,${buffer.toString("base64")}`;
-      console.log(`✅ Received image file (size: ${buffer.length} bytes, type: ${mimeType})`);
-    } else if (req.body.imageFile && req.body.imageFile.startsWith("http")) {
-      // Handle image URL
+      console.log(`✅ Received image file: ${req.file.originalname} (${buffer.length} bytes)`);
+    } else if (req.body.imageFile?.startsWith("http")) {
       const response = await axios.get(req.body.imageFile, { responseType: "arraybuffer" });
       const buffer = Buffer.from(response.data, "binary");
-      const contentType = response.headers["content-type"] || mimeType;
-      imageBase64 = `data:${contentType};base64,${buffer.toString("base64")}`;
+      imageBase64 = `data:${mimeType};base64,${buffer.toString("base64")}`;
       console.log("✅ Fetched image from URL");
     } else {
       return res.status(400).json({ error: "No valid image provided." });
     }
 
-    // Generate embedding
-    console.log("🚀 Sending image to Python service for embedding...");
+    console.log("🚀 Sending image to Python model for embedding...");
     const embedding = await generateEmbedding(imageBase64);
 
     if (!embedding || !Array.isArray(embedding)) {
-      throw new Error("Invalid embedding received from Python service");
+      throw new Error("Invalid embedding format from Python service");
     }
-    console.log(`✅ Embedding received (length: ${embedding.length})`);
 
-    // Perform vector similarity search
     const results = products
       .map((p) => ({
         id: p.id,
@@ -101,24 +89,22 @@ app.post("/api/search", upload.single("imageFile"), async (req, res) => {
       .sort((a, b) => b.similarityScore - a.similarityScore)
       .slice(0, 100);
 
-    console.log(`✅ Returning ${results.length} search results`);
+    console.log(`✅ Returning ${results.length} results`);
     return res.status(200).json({ results });
   } catch (err) {
-    console.error("🔥 Controller Error:", err.stack || err.message);
-    return res.status(500).json({
+    console.error("🔥 Internal Error:", err);
+    res.status(500).json({
       error: "Internal Server Error",
       detail: err.message,
     });
   }
 });
 
-// Default route
 app.get("/", (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.send("✅ Visual Matcher Backend is running");
+  res.send("✅ Visual Matcher Backend is running.");
 });
 
-// Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 
