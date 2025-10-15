@@ -11,31 +11,21 @@ const __dirname = dirname(__filename);
 
 const app = express();
 
-const allowedOrigins = [
-  "https://visual-matcher-frontend-pknp.onrender.com",
-  "http://localhost:3000"
-];
 
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  methods: "GET,POST",
-  credentials: true,
-}));
+const ALLOWED_ORIGIN = "https://visual-matcher-frontend-pknp.onrender.com";
+
+app.use(
+  cors({
+    origin: ALLOWED_ORIGIN,
+    methods: ["GET", "POST"],
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-app.use((req, res, next) => {
-  console.log(`➡️  ${req.method} ${req.url}`);
-  next();
-});
 
-app.use("/api", searchRoutes);
+app.use("/api/search", searchRoutes);
 
 // Error-handling middlewares
 app.use(notFound);
