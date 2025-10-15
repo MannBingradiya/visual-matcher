@@ -61,7 +61,6 @@
 
 
 
-
 import fs from "fs";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
@@ -71,12 +70,11 @@ import axios from "axios";
 import embeddingService from "../config/embeddingService.js"; 
 const { generateEmbedding } = embeddingService;
 
-// --- CRITICAL FIX: Hybrid Imports for Local Utilities ---
-// We use dynamic imports (import()) to safely load CommonJS modules 
-// and assign their exports to global variables.
-let cosineSimilarity = (a, b) => 0; // Default zero function for safety
-let loadProducts = () => []; // Default empty array function for safety
-let products = []; // Will hold the loaded product database
+// CRITICAL FIX: Hybrid Imports for Local Utilities (Async Load)
+// This loads the utilities safely and prevents crashing on startup.
+let cosineSimilarity = (a, b) => 0; 
+let loadProducts = () => []; 
+let products = []; 
 
 (async () => {
     try {
@@ -144,7 +142,7 @@ export const searchProducts = async (req, res, next) => {
 
         if (!embedding || !Array.isArray(embedding)) {
             res.status(500);
-            throw new new Error("Invalid or empty embedding received from Python service.");
+            throw new Error("Invalid or empty embedding received from Python service.");
         }
         console.log(`Node LOG: Received embedding of length ${embedding.length}`);
 
@@ -174,4 +172,4 @@ export const searchProducts = async (req, res, next) => {
         next(err); 
     }
 };
-```eof
+
