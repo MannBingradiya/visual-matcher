@@ -14,14 +14,14 @@ const PYTHON_EMBED_URL = "https://visual-matcher-model.onrender.com/embed";
 const products = loadProducts(path.join(__dirname, "../data/products_with_price.json"));
 
 export const searchProducts = async (req, res, next) => {
-  console.log("🚀 [Search Controller] Request received at /api/search");
+  console.log("[Search Controller] Request received at /api/search");
   try {
     let imageBuffer;
 
     // --- Handle uploaded file ---
     if (req.file && req.file.buffer) {
       imageBuffer = req.file.buffer;
-      console.log(`✅ Uploaded file received (${req.file.originalname}, ${imageBuffer.length} bytes)`);
+      console.log(` Uploaded file received (${req.file.originalname}, ${imageBuffer.length} bytes)`);
     } else if (req.body.imageFile && req.body.imageFile.startsWith("http")) {
       console.log("Node LOG: Downloading image from URL...");
       const response = await axios.get(req.body.imageFile, { responseType: "arraybuffer" });
